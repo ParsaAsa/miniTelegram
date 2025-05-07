@@ -7,20 +7,24 @@ import java.net.InetSocketAddress;
 
 public class Main {
     public static void main(String[] args) throws Exception {
+        int port = 8090; // WebSocket server port
+        ChatWebSocketServer server = new ChatWebSocketServer(port);
+        server.start();
+        System.out.println("WebSocket server started on port " + port);
         // Create and start the HTTP server
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+        HttpServer server2 = HttpServer.create(new InetSocketAddress(8080), 0);
 
         // Register your handler
-        server.createContext("/user", new UserHttpHandler());
+        server2.createContext("/user", new UserHttpHandler());
 
         //Register the ChatHttpHandler for /chat endpoint
-        server.createContext("/chat", new ChatHttpHandler());
+        server2.createContext("/chat", new ChatHttpHandler());
 
         //Register the ChatMemberHttpHandler for /chat endpoint
-        server.createContext("/chatmember", new ChatMemberHttpHandler());
+        server2.createContext("/chatmember", new ChatMemberHttpHandler());
 
         // Start the server
-        server.start();
+        server2.start();
         System.out.println("Server started on http://localhost:8080");
     }
 }

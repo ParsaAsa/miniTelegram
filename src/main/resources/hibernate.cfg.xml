@@ -34,6 +34,8 @@
         <mapping class="entity.User"/>
         <mapping class="entity.Chat"/>
         <mapping class="entity.ChatMember"/>
+        <mapping class="entity.Message"/>
+        <mapping class="entity.Media"/>
 
     </session-factory>
 </hibernate-configuration>

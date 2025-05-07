@@ -1,29 +1,36 @@
 package entity;
 
 import jakarta.persistence.*;
-import java.sql.Timestamp;
 
 @Entity
 @Table(name = "media")
 public class Media {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    private MediaType type;
-
-    private String url;
-    private Timestamp uploadedAt;
+    private String url; // Example field
 
     @ManyToOne
-    private User uploader;
-
-    @ManyToOne
+    @JoinColumn(name = "message_id")
     private Message message;
 
-    @ManyToOne
-    private Post post;
+    // Constructors
+    public Media() {}
+
+    public Media(String url, Message message) {
+        this.url = url;
+        this.message = message;
+    }
 
     // Getters and setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUrl() { return url; }
+    public void setUrl(String url) { this.url = url; }
+
+    public Message getMessage() { return message; }
+    public void setMessage(Message message) { this.message = message; }
 }
