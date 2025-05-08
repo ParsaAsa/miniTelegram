@@ -1,13 +1,15 @@
 package entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.*; // Use jakarta.persistence instead of javax.persistence
+import java.util.Date;         // For Date types
 
 @Entity
-@Table(name = "users") // Avoid PostgreSQL reserved word "User"
+@Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(nullable = false, unique = true)
     private String username;
@@ -15,29 +17,29 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    private String displayName;
-    private String profilePictureUrl;
-    private String createdAt;
-    private String lastOnline;
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(nullable = false)
+    private Date createdAt;
 
-    // Constructors
-    public User() {}
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastOnline;
 
-    public User(String username, String password, String displayName, String profilePictureUrl, String createdAt, String lastOnline) {
-        this.username = username;
-        this.password = password;
-        this.displayName = displayName;
-        this.profilePictureUrl = profilePictureUrl;
-        this.createdAt = createdAt;
-        this.lastOnline = lastOnline;
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private Profile profile;
+
+    // ✅ Automatically set createdAt before saving to DB
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = new Date();
+        }
     }
-
-    // Getters and setters
-    public Integer getId() {
+    // Getters and Setters
+    public Long getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -57,35 +59,28 @@ public class User {
         this.password = password;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
-
-    public String getProfilePictureUrl() {
-        return profilePictureUrl;
-    }
-
-    public void setProfilePictureUrl(String profilePictureUrl) {
-        this.profilePictureUrl = profilePictureUrl;
-    }
-
-    public String getCreatedAt() {
+    public Date getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(String createdAt) {
+    public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
     }
 
-    public String getLastOnline() {
+    public Date getLastOnline() {
         return lastOnline;
     }
 
-    public void setLastOnline(String lastOnline) {
+    public void setLastOnline(Date lastOnline) {
         this.lastOnline = lastOnline;
     }
+
+    public Profile getProfile() {
+        return profile;
+    }
+
+    public void setProfile(Profile profile) {
+        this.profile = profile;
+    }
+
 }

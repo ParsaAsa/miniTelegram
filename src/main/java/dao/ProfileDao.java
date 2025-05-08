@@ -1,25 +1,25 @@
 package dao;
 
-import entity.User;
+import entity.Profile;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.Persistence;
 
 import java.util.List;
 
-public class UserDao {
+public class ProfileDao {
 
     private EntityManager entityManager;
 
-    public UserDao() {
+    public ProfileDao() {
         this.entityManager = Persistence.createEntityManagerFactory("your-persistence-unit-name").createEntityManager();
     }
 
-    public void save(User user) {
+    public void save(Profile profile) {
         EntityTransaction transaction = entityManager.getTransaction();
         try {
             transaction.begin();
-            entityManager.persist(user);
+            entityManager.persist(profile);
             transaction.commit();
         } catch (Exception e) {
             if (transaction.isActive()) {
@@ -29,29 +29,29 @@ public class UserDao {
         }
     }
 
-    public User findById(Long id) {
-        return entityManager.find(User.class, id);
+    public Profile findById(Long id) {
+        return entityManager.find(Profile.class, id);
     }
 
-    public User findByUsername(String username) {
+    public Profile findByUserId(Long userId) {
         try {
-            return entityManager.createQuery("FROM User WHERE username = :username", User.class)
-                    .setParameter("username", username)
+            return entityManager.createQuery("FROM Profile WHERE user.id = :userId", Profile.class)
+                    .setParameter("userId", userId)
                     .getSingleResult();
         } catch (Exception e) {
             return null;
         }
     }
 
-    public List<User> findAll() {
-        return entityManager.createQuery("FROM User", User.class).getResultList();
+    public List<Profile> findAll() {
+        return entityManager.createQuery("FROM Profile", Profile.class).getResultList();
     }
 
-    public void update(User user) {
+    public void update(Profile profile) {
         EntityTransaction transaction = entityManager.getTransaction();
         try {
             transaction.begin();
-            entityManager.merge(user);
+            entityManager.merge(profile);
             transaction.commit();
         } catch (Exception e) {
             if (transaction.isActive()) {
@@ -61,11 +61,11 @@ public class UserDao {
         }
     }
 
-    public void delete(User user) {
+    public void delete(Profile profile) {
         EntityTransaction transaction = entityManager.getTransaction();
         try {
             transaction.begin();
-            entityManager.remove(user);
+            entityManager.remove(profile);
             transaction.commit();
         } catch (Exception e) {
             if (transaction.isActive()) {

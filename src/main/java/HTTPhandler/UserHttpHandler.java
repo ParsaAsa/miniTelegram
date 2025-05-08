@@ -4,8 +4,6 @@ import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import entity.User;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import util.HibernateUtil;
@@ -24,10 +22,8 @@ public class UserHttpHandler implements HttpHandler {
             String path = exchange.getRequestURI().getPath();
 
             if (path.equals("/user/signup")) {
-                // Handle signup (create new user)
                 handleSignup(exchange);
             } else if (path.equals("/user/login")) {
-                // Handle login (authenticate user and return JWT)
                 handleLogin(exchange);
             } else {
                 exchange.sendResponseHeaders(404, -1); // Not Found
@@ -131,5 +127,4 @@ public class UserHttpHandler implements HttpHandler {
     private String generateJwtToken(User user) {
         return JwtUtil.generateToken(user.getUsername());
     }
-
 }

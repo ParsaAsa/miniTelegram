@@ -1,4 +1,5 @@
 import HTTPhandler.ChatMemberHttpHandler;
+import HTTPhandler.ProfileHttpHandler;
 import HTTPhandler.UserHttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
@@ -20,8 +21,11 @@ public class Main {
         //Register the ChatHttpHandler for /chat endpoint
         server2.createContext("/chat", new ChatHttpHandler());
 
-        //Register the ChatMemberHttpHandler for /chat endpoint
+        //Register the ChatMemberHttpHandler for /chatmember endpoint
         server2.createContext("/chatmember", new ChatMemberHttpHandler());
+
+        //Register the ChatMemberHttpHandler for /profile endpoint
+        server2.createContext("/profile", new ProfileHttpHandler());
 
         // Start the server
         server2.start();
