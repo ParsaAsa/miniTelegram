@@ -9,8 +9,9 @@ import java.sql.Timestamp;
 import java.net.InetSocketAddress;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import dto.IncomingMessageDTO;
 
-import util.HibernateUtil;
+import static util.HibernateUtil.sessionFactory;
 
 public class ChatWebSocketServer extends WebSocketServer {
 
@@ -29,29 +30,37 @@ public class ChatWebSocketServer extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, String messageJson) {
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+        try (Session session = sessionFactory.openSession()) {
             Transaction tx = session.beginTransaction();
 
-            // Deserialize the raw JSON
-            Message raw = new Gson().fromJson(messageJson, Message.class);
+            // Parse incoming JSON
+            IncomingMessageDTO dto = new Gson().fromJson(messageJson, IncomingMessageDTO.class);
 
-            // Resolve IDs to real entities
-            Message message = new Message();
-            message.setContent(raw.getContent());
-            message.setSentAt(new Timestamp(System.currentTimeMillis()));
-            message.setSender(session.get(User.class, raw.getSender().getId()));
-            message.setChat(session.get(Chat.class, raw.getChat().getId()));
-            if (raw.getReplyTo() != null && raw.getReplyTo().getId() != null) {
-                message.setReplyTo(session.get(Message.class, raw.getReplyTo().getId()));
+            // Load required entities
+            User sender = session.get(User.class, dto.senderId);
+            Chat chat = session.get(Chat.class, dto.chatId);
+            Message replyTo = dto.replyToId != null ? session.get(Message.class, dto.replyToId) : null;
+
+            // Create and persist message
+            Message message = new Message(sender, chat, dto.content, new Timestamp(System.currentTimeMillis()), replyTo);
+            session.persist(message);
+
+            // Handle media list (if any)
+            if (dto.mediaUrls != null) {
+                for (String url : dto.mediaUrls) {
+                    Media media = new Media(url, message);
+                    session.persist(media);
+                }
             }
 
-            session.persist(message);
             tx.commit();
 
-            // Broadcast to other clients
-            broadcast(new Gson().toJson(message));
+            // Broadcast or respond as needed
+            conn.send("Message received and saved.");
+
         } catch (Exception e) {
             e.printStackTrace();
+            conn.send("Error processing message: " + e.getMessage());
         }
     }
 
