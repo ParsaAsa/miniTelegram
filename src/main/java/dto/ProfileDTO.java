@@ -9,7 +9,6 @@ public class ProfileDTO {
         this.profilePicture = profilePicture;
     }
 
-    // Getters
     public String getDisplayName() {
         return displayName;
     }

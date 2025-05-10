@@ -17,4 +17,27 @@ public class ChatMemberDao {
             throw e;
         }
     }
+
+    public boolean chatMemberExists(Long chatId, Long userId) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            String hql = "SELECT COUNT(*) FROM ChatMember WHERE chat.id = :chatId AND user.id = :userId";
+            Long count = (Long) session.createQuery(hql)
+                    .setParameter("chatId", chatId)
+                    .setParameter("userId", userId)
+                    .uniqueResult();
+            return count != null && count > 0;
+        }
+    }
+
+    public boolean isMember(Long chatId, Long userId) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Long count = session.createQuery(
+                            "SELECT COUNT(cm) FROM ChatMember cm " +
+                                    " WHERE cm.chat.id = :chatId AND cm.user.id = :userId", Long.class)
+                    .setParameter("chatId", chatId)
+                    .setParameter("userId", userId)
+                    .uniqueResult();
+            return count != null && count > 0;
+        }
+    }
 }

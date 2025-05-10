@@ -13,7 +13,7 @@ public class ChatDao {
             transaction = session.beginTransaction();
 
             session.save(chat);  // Save entity
-            transaction.commit(); // ✅ Commit transaction
+            transaction.commit(); // Commit transaction
 
         } catch (Exception e) {
             if (transaction != null) transaction.rollback();  // Roll back on error

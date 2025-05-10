@@ -8,6 +8,7 @@ import entity.*;
 
 import org.hibernate.Session;
 import util.HibernateUtil;
+import util.JwtUtil;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +21,19 @@ public class ChatMemberHttpHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String token = exchange.getRequestHeaders().getFirst("Authorization");
+
+            if (token == null || token.isEmpty()) {
+                exchange.sendResponseHeaders(401, -1); // Unauthorized
+                return;
+            }
+
+            String username = JwtUtil.validateToken(token);
+            if (username == null) {
+                exchange.sendResponseHeaders(401, -1); // Unauthorized
+                return;
+            }
+
             InputStreamReader reader = new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8);
             JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
 
@@ -43,6 +57,14 @@ public class ChatMemberHttpHandler implements HttpHandler {
                 }
 
                 ChatMember chatMember = new ChatMember(user, chat, new Timestamp(System.currentTimeMillis()), role);
+                if (chatMemberDao.chatMemberExists(chatMember.getChat().getId(), chatMember.getUser().getId())) {
+                    String response = "Chat member already exists.";
+                    exchange.sendResponseHeaders(409, response.getBytes().length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                    return;
+                }
                 chatMemberDao.save(chatMember);
 
                 String response = "ChatMember created successfully!";

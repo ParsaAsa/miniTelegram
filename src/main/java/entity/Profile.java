@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "profiles")
 public class Profile {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,6 +18,14 @@ public class Profile {
     @OneToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    public Profile() {}
+
+    public Profile(String displayName, String profilePicture, User user) {
+        this.displayName = displayName;
+        this.profilePicture = profilePicture;
+        this.user = user;
+    }
 
     // Getters and Setters
     public Long getId() {

@@ -27,7 +27,7 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Profile profile;
 
-    // ✅ Automatically set createdAt before saving to DB
+    // Automatically set createdAt before saving to DB
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
