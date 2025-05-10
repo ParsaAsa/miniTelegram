@@ -10,7 +10,7 @@ public class Media {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String url; // Example field
+    private String url;
 
     @ManyToOne
     @JoinColumn(name = "message_id")

@@ -1,72 +1,145 @@
-import org.java_websocket.server.WebSocketServer;
+import com.google.gson.Gson;
+import dao.ChatMemberDao;
+import dao.MessageDao;
+import dto.MessageDTO;
+import entity.Message;
+import entity.User;
+import util.JwtUtil;
+
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
 
-import dao.MessageDao;
-import entity.*;
-import com.google.gson.Gson;
-import java.sql.Timestamp;
 import java.net.InetSocketAddress;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
-import dto.IncomingMessageDTO;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static util.HibernateUtil.sessionFactory;
 
 public class ChatWebSocketServer extends WebSocketServer {
 
-    private final MessageDao messageDao = new MessageDao();
+    private static final Gson gson = new Gson();
+    private final ChatMemberDao chatMemberDao = new ChatMemberDao();
+    private final MessageDao    messageDao    = new MessageDao();
 
-    // Constructor that accepts the port
+    private static final ConcurrentHashMap<Long, Set<WebSocket>> sessionsPerChat = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<WebSocket, Long> userBySocket = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<WebSocket, Long> chatBySocket = new ConcurrentHashMap<>();
+
     public ChatWebSocketServer(int port) {
-        // Passing InetSocketAddress to the super constructor
         super(new InetSocketAddress(port));
     }
 
     @Override
-    public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        System.out.println("New connection: " + conn.getRemoteSocketAddress());
+    public void onStart() {
+        System.out.println("WebSocket server listening on port " + getPort());
     }
 
     @Override
-    public void onMessage(WebSocket conn, String messageJson) {
-        try (Session session = sessionFactory.openSession()) {
-            Transaction tx = session.beginTransaction();
-
-            // Parse incoming JSON
-            IncomingMessageDTO dto = new Gson().fromJson(messageJson, IncomingMessageDTO.class);
-
-            // Load required entities
-            User sender = session.get(User.class, dto.senderId);
-            Chat chat = session.get(Chat.class, dto.chatId);
-            Message replyTo = dto.replyToId != null ? session.get(Message.class, dto.replyToId) : null;
-
-            // Create and persist message
-            Message message = new Message(sender, chat, dto.content, new Timestamp(System.currentTimeMillis()), replyTo);
-            session.persist(message);
-
-            // Handle media list (if any)
-            if (dto.mediaUrls != null) {
-                for (String url : dto.mediaUrls) {
-                    Media media = new Media(url, message);
-                    session.persist(media);
-                }
-            }
-
-            tx.commit();
-
-            // Broadcast or respond as needed
-            conn.send("Message received and saved.");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            conn.send("Error processing message: " + e.getMessage());
+    public void onOpen(WebSocket conn, ClientHandshake hs) {
+        // JWT Auth
+        String auth = hs.getFieldValue("Authorization");
+        if (auth == null) {
+            conn.close(1008, "Missing or invalid Authorization header");
+            return;
         }
+        String username = JwtUtil.validateToken(auth);
+        if (username == null) {
+            conn.close(1008, "Unauthorized");
+            return;
+        }
+
+        // Load User
+        Long userId;
+        try (var session = sessionFactory.openSession()) {
+            User user = session.createQuery(
+                            "FROM User u WHERE u.username = :uname", User.class)
+                    .setParameter("uname", username)
+                    .getSingleResult();
+            userId = user.getId();
+            // update lastOnline
+            session.beginTransaction();
+            user.setLastOnline(new java.util.Date());
+            session.merge(user);
+            session.getTransaction().commit();
+        } catch (Exception ex) {
+            conn.close(1008, "User lookup failed");
+            return;
+        }
+
+        // extract chatId from "/ws/chat/{chatId}"
+        String path = hs.getResourceDescriptor();
+        Long chatId;
+        try {
+            chatId = Long.valueOf(path.substring(path.lastIndexOf('/') + 1));
+        } catch (NumberFormatException e) {
+            conn.close(1008, "Invalid chatId");
+            return;
+        }
+
+        // membership check
+        if (!chatMemberDao.isMember(chatId, userId)) {
+            conn.close(1008, "Forbidden: not a chat member");
+            return;
+        }
+
+        // register
+        userBySocket.put(conn, userId);
+        chatBySocket.put(conn, chatId);
+        sessionsPerChat
+                .computeIfAbsent(chatId, k -> ConcurrentHashMap.newKeySet())
+                .add(conn);
+
+        System.out.printf("User %d joined chat %d%n", userId, chatId);
+    }
+
+    @Override
+    public void onMessage(WebSocket conn, String json) {
+        Long userId = userBySocket.get(conn);
+        Long chatId = chatBySocket.get(conn);
+        if (userId == null || chatId == null) {
+            conn.send("Error: not authenticated or not in a chat");
+            return;
+        }
+
+        MessageDTO dto = gson.fromJson(json, MessageDTO.class);
+
+        // persist via DAO
+        Message saved = messageDao.saveMessage(
+                userId,
+                chatId,
+                dto.content,
+                dto.replyToId,
+                dto.mediaUrls
+        );
+
+        // build outbound DTO
+        MessageDTO out = new MessageDTO();
+        out.messageId = saved.getId();
+        out.senderId  = userId;
+        out.chatId    = chatId;
+        out.content   = saved.getContent();
+        out.replyToId = saved.getReplyTo() == null ? null : saved.getReplyTo().getId();
+        out.mediaUrls = dto.mediaUrls;
+        out.sentAt    = saved.getSentAt().getTime();
+
+        String outJson = gson.toJson(out);
+
+        // broadcast
+        sessionsPerChat.getOrDefault(chatId, Set.of()).forEach(peer -> {
+            if (peer.isOpen()) peer.send(outJson);
+        });
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        System.out.println("Closed connection: " + conn.getRemoteSocketAddress());
+        Long chatId = chatBySocket.remove(conn);
+        userBySocket.remove(conn);
+        if (chatId != null) {
+            var set = sessionsPerChat.get(chatId);
+            if (set != null) set.remove(conn);
+        }
+        System.out.printf("Connection closed: code=%d reason=%s%n", code, reason);
     }
 
     @Override
@@ -74,15 +147,7 @@ public class ChatWebSocketServer extends WebSocketServer {
         ex.printStackTrace();
     }
 
-    @Override
-    public void onStart() {
-        System.out.println("WebSocket server started");
-    }
-
     public static void main(String[] args) {
-        int port = 8080; // Port for the WebSocket server
-        ChatWebSocketServer server = new ChatWebSocketServer(port);
-        server.start();
-        System.out.println("WebSocket server listening on port: " + port);
+        new ChatWebSocketServer(8080).start();
     }
 }

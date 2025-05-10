@@ -17,20 +17,7 @@ import java.nio.charset.StandardCharsets;
 
 public class ProfileHttpHandler implements HttpHandler {
 
-    private void handleUpdateProfile(HttpExchange exchange) throws IOException {
-        String token = exchange.getRequestHeaders().getFirst("Authorization");
-
-        if (token == null || token.isEmpty()) {
-            exchange.sendResponseHeaders(401, -1); // Unauthorized
-            return;
-        }
-
-        String username = JwtUtil.validateToken(token);
-        if (username == null) {
-            exchange.sendResponseHeaders(401, -1); // Unauthorized
-            return;
-        }
-
+    private void handleUpdateProfile(HttpExchange exchange, String username) throws IOException {
         InputStreamReader reader = new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8);
         Profile updatedProfile = new Gson().fromJson(reader, Profile.class);
 
@@ -68,17 +55,30 @@ public class ProfileHttpHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        String token = exchange.getRequestHeaders().getFirst("Authorization");
+
+        if (token == null || token.isEmpty()) {
+            exchange.sendResponseHeaders(401, -1); // Unauthorized
+            return;
+        }
+
+        String username = JwtUtil.validateToken(token);
+        if (username == null) {
+            exchange.sendResponseHeaders(401, -1); // Unauthorized
+            return;
+        }
+
         if ("GET".equals(exchange.getRequestMethod())) {
             String path = exchange.getRequestURI().getPath();
             if (path.equals("/profile")) {
-                handleGetProfile(exchange);
+                handleGetProfile(exchange, username);
             } else {
                 exchange.sendResponseHeaders(404, -1); // Not Found
             }
         } else if ("PUT".equals(exchange.getRequestMethod())) {
             String path = exchange.getRequestURI().getPath();
             if (path.equals("/profile")) {
-                handleUpdateProfile(exchange);
+                handleUpdateProfile(exchange, username);
             } else {
                 exchange.sendResponseHeaders(404, -1); // Not Found
             }
@@ -87,27 +87,7 @@ public class ProfileHttpHandler implements HttpHandler {
         }
     }
 
-    private void handleGetProfile(HttpExchange exchange) throws IOException {
-        // Extract JWT from Authorization header
-        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            exchange.sendResponseHeaders(401, -1); // Unauthorized
-            return;
-        }
-
-        String token = authHeader.substring("Bearer ".length()).trim();
-        if (token.isEmpty()) {
-            exchange.sendResponseHeaders(401, -1); // Unauthorized
-            return;
-        }
-
-        // Validate token
-        String username = JwtUtil.validateToken(token);
-        if (username == null) {
-            exchange.sendResponseHeaders(401, -1); // Unauthorized
-            return;
-        }
-
+    private void handleGetProfile(HttpExchange exchange, String username) throws IOException {
         // Fetch user and profile
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             User user = getUserByUsername(session, username);

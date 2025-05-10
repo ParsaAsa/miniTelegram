@@ -3,6 +3,7 @@ package HTTPhandler;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import entity.Profile;
 import entity.User;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -54,6 +55,8 @@ public class UserHttpHandler implements HttpHandler {
 
             // Save the new user
             session.save(user);
+            Profile profile = new Profile(user.getUsername(), null, user);
+            session.save(profile);
 
             // Commit the transaction
             transaction.commit();

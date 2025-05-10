@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.ChatDao;
 import entity.Chat;
+import util.JwtUtil;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,6 +20,19 @@ public class ChatHttpHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if ("POST".equals(exchange.getRequestMethod())) {
+            String token = exchange.getRequestHeaders().getFirst("Authorization");
+
+            if (token == null || token.isEmpty()) {
+                exchange.sendResponseHeaders(401, -1); // Unauthorized
+                return;
+            }
+
+            String username = JwtUtil.validateToken(token);
+            if (username == null) {
+                exchange.sendResponseHeaders(401, -1); // Unauthorized
+                return;
+            }
+
             // Read the request body
             InputStreamReader reader = new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8);
             Chat chat = new Gson().fromJson(reader, Chat.class);

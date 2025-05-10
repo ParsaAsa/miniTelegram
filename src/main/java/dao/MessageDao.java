@@ -1,30 +1,61 @@
 package dao;
 
 import entity.Message;
+import entity.Media;
+import entity.User;
+import entity.Chat;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import util.HibernateUtil;
 
+import java.sql.Timestamp;
+import java.util.List;
+
 public class MessageDao {
-
-    public void saveMessage(Message message) {
-        Transaction transaction = null;
+    public Message saveMessage(
+            Long senderId,
+            Long chatId,
+            String content,
+            Long replyToId,
+            List<String> mediaUrls
+    ) {
+        Transaction tx = null;
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            transaction = session.beginTransaction();
-            session.save(message);
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
-            e.printStackTrace();
-            throw e;
+            tx = session.beginTransaction();
+
+            // reattach full entities
+            User sender = session.get(User.class, senderId);
+            Chat chat   = session.get(Chat.class, chatId);
+            Message replyTo = null;
+            if (replyToId != null) {
+                replyTo = session.get(Message.class, replyToId);
+            }
+
+            // build the message
+            Message msg = new Message();
+            msg.setSender(sender);
+            msg.setChat(chat);
+            msg.setContent(content);
+            msg.setSentAt(new Timestamp(System.currentTimeMillis()));
+            msg.setReplyTo(replyTo);
+
+            session.persist(msg);
+
+            // handle media URLs
+            if (mediaUrls != null) {
+                for (String url : mediaUrls) {
+                    Media m = new Media();
+                    m.setUrl(url);
+                    m.setMessage(msg);
+                    session.persist(m);
+                }
+            }
+
+            tx.commit();
+            return msg;
+        } catch (Exception ex) {
+            if (tx != null) tx.rollback();
+            throw ex;
         }
     }
-
-    public Message getMessageById(Long id) {
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.get(Message.class, id);
-        }
-    }
-
-
 }
